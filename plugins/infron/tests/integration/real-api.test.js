@@ -20,6 +20,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { handler as imageHandler } from "../../lib/tools/image.js";
+import { handler as imageEditHandler } from "../../lib/tools/image_edit.js";
 import { handler as chatHandler } from "../../lib/tools/chat.js";
 import { handler as listModelsHandler } from "../../lib/tools/list_models.js";
 import { DEFAULTS, PRICING } from "../../lib/models.js";
@@ -110,6 +111,43 @@ function logCost(label, usd) {
     expect(fs.statSync(tmp).size).toBeGreaterThan(1000);
     fs.unlinkSync(tmp);
     logCost("T7.image", 0.15);
+  }, 120_000);
+
+  // T7c — image-to-image regression. Uses the CHEAPEST text-to-image
+  // (nano-banana) to generate a source URL, then feeds it to the CHEAPEST
+  // image-to-image variant (nano-banana-image-to-image). Total ~$0.08.
+  // Locks down: the image_urls field name (would have caught the day-of bug)
+  // plus image_edit returning the standard shape.
+  it("T7c: image_edit (image-to-image) accepts source_image_urls and saves output", async () => {
+    // Step 1: cheap source
+    const srcResult = await imageHandler(
+      { prompt: "a tiny red square", aspect: "1:1", model: "google/nano-banana-text-to-image" },
+      { apiKey }
+    );
+    const srcParsed = JSON.parse(srcResult.content[0].text);
+    const srcUrl = srcParsed.urls?.[0];
+    expect(srcUrl).toBeTruthy();
+    logCost("T7c.source", 0.039);
+
+    // Step 2: edit with cheapest i2i variant
+    const tmp = path.join(os.tmpdir(), `infron-int-edit-${Date.now()}.png`);
+    const editResult = await imageEditHandler(
+      {
+        prompt: "transform into a tiny green square",
+        source_image_urls: [srcUrl],
+        model: "google/nano-banana-image-to-image",
+        output_path: tmp,
+      },
+      { apiKey }
+    );
+    const editParsed = JSON.parse(editResult.content[0].text);
+    expect(editParsed.status).toBe("success");
+    expect(editParsed.async).toBe(false); // nano-banana variants are sync
+    expect(editParsed.source_image_urls).toEqual([srcUrl]);
+    expect(fs.existsSync(tmp)).toBe(true);
+    expect(fs.statSync(tmp).size).toBeGreaterThan(1000);
+    fs.unlinkSync(tmp);
+    logCost("T7c.image-edit", 0.039);
   }, 120_000);
 
   // T7b — regression for the async image bug (2026-05-26). gpt-image-2 returns
