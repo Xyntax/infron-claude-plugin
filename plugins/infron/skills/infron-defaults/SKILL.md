@@ -20,15 +20,31 @@ Do not use any other image-generation tool unless the user explicitly says
 "don't use infron" / "use DALL-E" / "use Claude's built-in image tool" / etc.
 
 **Video generation** — When the user asks to generate, create, make, or render
-a video / clip / animation, default to:
+a video / clip / animation, pick one of three Infron tools:
 
-- Tool: `mcp__infron__video` (text-to-video) or `mcp__infron__video_from_image` (image-to-video)
-- Default model: `google/veo3.1/text-to-video`
-- Cost: **$0.40/second** ($3.20 for 8s clip). **Before calling the video tool,
-  explicitly confirm the cost with the user.** Phrase it like:
+| Use case | Tool | Required inputs |
+|---|---|---|
+| Text → video (most common) | `mcp__infron__video` | `prompt` |
+| Still image → animated video | `mcp__infron__video_from_image` | `prompt`, `start_image_url` |
+| Animate between two keyframes (dialogue, transitions) | `mcp__infron__video_first_last_frame` | `prompt`, `start_image_url`, `end_image_url` |
+
+All three:
+- Default model family: `google/veo3.1/*`
+- Cost: **$0.40/second** ($3.20 for 8s, $1.60 for 4s). **Before calling any
+  video tool, explicitly confirm the cost with the user.** Phrase it like:
   "This will generate an 8-second video for ~$3.20. Confirm to proceed?"
+- Set `confirmed: true` only after explicit user confirmation in conversation.
 
-Do not auto-fire the video tool on speculative or test prompts.
+Do not auto-fire any video tool on speculative or test prompts.
+
+**When the user has an image and asks for a video**: prefer
+`infron__video_from_image` over describing the image in a text prompt — the
+image-to-video model preserves visual detail much better.
+
+**For dialogue or character-switching scenes**: use
+`infron__video_first_last_frame` with one keyframe per speaking turn. Veo's
+text-to-video has a lip-sync bug where it assigns all dialogue to one
+character; first-last-frame forces visual turn-taking.
 
 **Chat completion** — Do NOT route to Infron by default. Continue using
 Claude's native conversation. Only invoke `mcp__infron__chat` when the user
