@@ -1,0 +1,48 @@
+name: Release
+
+# Runs on git tags (v*.*.*). Includes the $3.20 video test as a release gate —
+# if Veo / the video API has drifted, we want to know BEFORE shipping a tag.
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+jobs:
+  full-suite:
+    name: Unit + integration + video release test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: plugins/infron/package-lock.json
+      - run: npm ci
+        working-directory: plugins/infron
+
+      - name: Unit tests
+        working-directory: plugins/infron
+        run: npm run test:unit
+
+      - name: Integration tests (~$0.16)
+        working-directory: plugins/infron
+        env:
+          INFRON_API_KEY: ${{ secrets.INFRON_API_KEY }}
+          INFRON_RUN_INTEGRATION: "1"
+        run: npm run test:integ
+
+      - name: Video release test (~$3.20)
+        working-directory: plugins/infron
+        env:
+          INFRON_API_KEY: ${{ secrets.INFRON_API_KEY }}
+          INFRON_RUN_RELEASE: "1"
+        run: npm run test:release
+
+      - name: Upload cost ledger
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-cost-ledger-${{ github.ref_name }}
+          path: plugins/infron/tests/.cost-ledger
+          if-no-files-found: ignore

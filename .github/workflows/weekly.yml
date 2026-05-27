@@ -1,0 +1,29 @@
+name: Weekly registry check
+
+# T6: make sure the default models in our PRICING table still exist on the
+# live Infron API. Caught early if Infron renames or retires a default model.
+on:
+  schedule:
+    - cron: "0 9 * * 1"   # Mondays 09:00 UTC
+  workflow_dispatch: {}
+
+jobs:
+  check:
+    name: Verify default models exist on live API
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: plugins/infron/package-lock.json
+      - run: npm ci
+        working-directory: plugins/infron
+      - name: Run T6+T9 only (free)
+        working-directory: plugins/infron
+        env:
+          INFRON_API_KEY: ${{ secrets.INFRON_API_KEY }}
+          INFRON_RUN_INTEGRATION: "1"
+        # -t filters by test name pattern
+        run: npx vitest run tests/integration -t "T6|T9"

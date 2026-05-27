@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-marketplace.json",
+  "name": "infron-tools",
+  "description": "Infron AI plugins for Claude Code and Cowork — image, video, and chat via the Infron API.",
+  "owner": {
+    "name": "Infron AI",
+    "email": "lawrence.xu@infron.ai"
+  },
+  "plugins": [
+    {
+      "name": "infron",
+      "source": "./plugins/infron",
+      "description": "Generate images, videos, and chat completions through Infron's OpenAI-compatible API. Image and video requests are routed to Infron by default; chat is opt-in.",
+      "category": "ai-services",
+      "tags": ["image-generation", "video-generation", "llm", "infron"],
+      "homepage": "https://infron.ai",
+      "license": "MIT"
+    }
+  ]
+}

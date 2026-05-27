@@ -1,0 +1,68 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  unit:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: plugins/infron/package-lock.json
+      - run: npm ci
+        working-directory: plugins/infron
+      - run: npm run test:unit
+        working-directory: plugins/infron
+
+  validate:
+    name: Validate plugin + marketplace manifests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Install Claude CLI
+        run: npm install -g @anthropic-ai/claude-code
+      - name: Validate marketplace
+        run: claude plugin validate .
+      - name: Validate plugin
+        run: claude plugin validate ./plugins/infron
+
+  integration:
+    # Real API hit (~$0.16/run). Only on push to main (not on every PR commit).
+    # Excludes forks so a malicious PR can't burn the budget.
+    name: Integration tests (hits real Infron API)
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    needs: [unit, validate]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: plugins/infron/package-lock.json
+      - run: npm ci
+        working-directory: plugins/infron
+      - name: Run integration tests
+        working-directory: plugins/infron
+        env:
+          INFRON_API_KEY: ${{ secrets.INFRON_API_KEY }}
+          INFRON_RUN_INTEGRATION: "1"
+        run: npm run test:integ
+      - name: Upload cost ledger
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cost-ledger-${{ github.run_id }}
+          path: plugins/infron/tests/.cost-ledger
+          if-no-files-found: ignore
