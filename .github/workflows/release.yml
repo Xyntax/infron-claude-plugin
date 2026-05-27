@@ -1,7 +1,18 @@
 name: Release
 
-# Runs on git tags (v*.*.*). Includes the $3.20 video test as a release gate —
-# if Veo / the video API has drifted, we want to know BEFORE shipping a tag.
+# Fires on git tags v*.*.*.
+#
+# Two-step flow:
+#   1. full-suite job — runs unit + integration + video release tests (incl.
+#      the $5.50 Veo verification). If any fails, no release is published.
+#   2. publish job — if tests pass, creates a GitHub Release with
+#      auto-generated notes from commits since the previous tag.
+#
+# Note on user-facing versioning: plugin.json has NO version field, so
+# Claude Code derives the version from the git commit SHA. Every commit on
+# main auto-updates user installs at session start. Tags are only used
+# for human-readable release announcements + the $5.50 video gate.
+
 on:
   push:
     tags:
@@ -25,14 +36,14 @@ jobs:
         working-directory: plugins/infron
         run: npm run test:unit
 
-      - name: Integration tests (~$0.16)
+      - name: Integration tests (~$0.24)
         working-directory: plugins/infron
         env:
           INFRON_API_KEY: ${{ secrets.INFRON_API_KEY }}
           INFRON_RUN_INTEGRATION: "1"
         run: npm run test:integ
 
-      - name: Video release test (~$3.20)
+      - name: Video release test (~$5.50)
         working-directory: plugins/infron
         env:
           INFRON_API_KEY: ${{ secrets.INFRON_API_KEY }}
@@ -46,3 +57,51 @@ jobs:
           name: release-cost-ledger-${{ github.ref_name }}
           path: plugins/infron/tests/.cost-ledger
           if-no-files-found: ignore
+
+  publish:
+    name: Publish GitHub Release
+    needs: full-suite
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate release notes
+        id: notes
+        run: |
+          # Find the previous tag, or fall back to the first commit
+          PREV_TAG=$(git describe --tags --abbrev=0 "${{ github.ref_name }}^" 2>/dev/null || git rev-list --max-parents=0 HEAD)
+          echo "Comparing against: $PREV_TAG"
+
+          # Generate release notes from commits between previous tag and this one
+          {
+            echo "## What changed"
+            echo ""
+            git log --pretty=format:"- %s (%h)" "$PREV_TAG..${{ github.ref_name }}"
+            echo ""
+            echo ""
+            echo "## Install or update"
+            echo ""
+            echo '```'
+            echo "Run this in any Claude Code Desktop chat:"
+            echo ""
+            echo "Update the Infron plugin: claude plugin marketplace update infron-tools && claude plugin update"
+            echo ""
+            echo "Then restart Claude."
+            echo '```'
+            echo ""
+            echo "First-time install instructions: see [README](https://github.com/${{ github.repository }}/blob/main/README.md#install-one-paste)"
+          } > release_notes.md
+          cat release_notes.md
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "${{ github.ref_name }}" \
+            --title "${{ github.ref_name }}" \
+            --notes-file release_notes.md \
+            --target main

@@ -1,7 +1,6 @@
 {
   "name": "infron",
   "displayName": "Infron",
-  "version": "0.1.0",
   "description": "Generate images, videos, and chat completions through Infron's API. Routes image/video requests to Infron by default.",
   "author": {
     "name": "Infron AI",

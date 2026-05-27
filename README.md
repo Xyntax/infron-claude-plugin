@@ -84,6 +84,26 @@ your account. Three layers of protection:
 If you want Claude to confirm even on $0.15 images, configure tool
 permissions to "ask" for `mcp__infron__image` in your Claude Code settings.
 
+## Updates
+
+The plugin auto-updates. Claude Code checks the marketplace at session
+startup and pulls the latest commit from this repo automatically — there's
+no `version` field pinning users to an old release.
+
+If you want to force an update mid-session, paste this into Claude chat:
+
+```text
+Update the Infron plugin: run `claude plugin marketplace update infron-tools && claude plugin update` in Bash. Then tell me to restart Claude.
+```
+
+Restart Claude after the commands finish. The new version is active
+immediately.
+
+We tag major releases (e.g. `v0.2.0`) for human-readable changelogs at
+[Releases](https://github.com/Xyntax/infron-claude-plugin/releases). Tag
+pushes also trigger the full $5.50 Veo verification suite as a release
+gate — if something regresses on Veo, no release is published.
+
 ## Key management
 
 The plugin reads your Infron API key from, in order:
