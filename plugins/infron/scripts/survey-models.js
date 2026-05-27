@@ -41,7 +41,12 @@ if (!apiKey) {
   process.exit(2);
 }
 
-const REPORT_PATH = path.join(process.cwd(), "docs/model-coverage.md");
+// Resolve repo root from the script location: scripts/survey-models.js lives
+// at plugins/infron/scripts/, so the repo root is three levels up.
+import { fileURLToPath } from "node:url";
+const __filename = fileURLToPath(import.meta.url);
+const REPO_ROOT = path.resolve(path.dirname(__filename), "../../..");
+const REPORT_PATH = path.join(REPO_ROOT, "docs/model-coverage.md");
 let totalSpentUsd = 0;
 const results = { image: [], chat: [], skipped: [] };
 
