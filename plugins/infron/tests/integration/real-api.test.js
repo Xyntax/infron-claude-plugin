@@ -94,8 +94,8 @@ function logCost(label, usd) {
     logCost("T8.chat", tokens * 0.000001); // rough; actual depends on model
   }, 60_000);
 
-  // T7 — real image. $0.15.
-  it("T7: image generation returns a downloadable file", async () => {
+  // T7 — real image (sync model). $0.15.
+  it("T7: image generation returns a downloadable file (sync model)", async () => {
     assertWithinTestBudget(DEFAULTS.image, { n: 1 });
     const tmp = path.join(os.tmpdir(), `infron-int-${Date.now()}.png`);
     const result = await imageHandler(
@@ -105,9 +105,38 @@ function logCost(label, usd) {
     const parsed = JSON.parse(result.content[0].text);
     expect(parsed.status).toBe("success");
     expect(parsed.saved).toEqual([tmp]);
+    expect(parsed.async).toBe(false);
     expect(fs.existsSync(tmp)).toBe(true);
-    expect(fs.statSync(tmp).size).toBeGreaterThan(1000); // real PNG, not empty
+    expect(fs.statSync(tmp).size).toBeGreaterThan(1000);
     fs.unlinkSync(tmp);
     logCost("T7.image", 0.15);
   }, 120_000);
+
+  // T7b — regression for the async image bug (2026-05-26). gpt-image-2 returns
+  // a task_id + polling URL on submission; the tool must poll until completed
+  // and read URLs from data.outputs. Also exercises the auto aspect→pixel
+  // translation since gpt-image-2 rejects "1:1".
+  // Cost: ~$0.006 per image (token-billed).
+  it("T7b: async image (gpt-image-2) polls and downloads", async () => {
+    const tmp = path.join(os.tmpdir(), `infron-int-async-${Date.now()}.png`);
+    const result = await imageHandler(
+      {
+        prompt: "a tiny red dot on white",
+        model: "openai/gpt-image-2/text-to-image",
+        aspect: "1:1",  // intentionally aspect, NOT pixels — must be auto-translated
+        output_path: tmp,
+      },
+      { apiKey }
+    );
+    const parsed = JSON.parse(result.content[0].text);
+    expect(parsed.status).toBe("success");
+    expect(parsed.async).toBe(true);
+    expect(parsed.task_id).toBeTruthy();
+    expect(parsed.size_used).toBe("1024x1024"); // proves translation happened
+    expect(parsed.saved).toEqual([tmp]);
+    expect(fs.existsSync(tmp)).toBe(true);
+    expect(fs.statSync(tmp).size).toBeGreaterThan(1000);
+    fs.unlinkSync(tmp);
+    logCost("T7b.gpt-image-2", 0.006);
+  }, 5 * 60_000);
 });

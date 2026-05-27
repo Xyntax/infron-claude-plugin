@@ -2,6 +2,7 @@ import fs from "node:fs";
 
 export const API_BASE = "https://llm.onerouter.pro/v1";
 export const VIDEO_TASKS_BASE = "https://video.onerouter.pro/v1/videos/tasks";
+export const IMAGE_TASKS_BASE = "https://image.onerouter.pro/v1/images/tasks";
 
 export class InfronError extends Error {
   constructor(type, message, { hint = null, status = null, raw = null } = {}) {
@@ -115,6 +116,11 @@ export async function generateVideoSubmit(apiKey, payload) {
 
 export async function pollVideoTask(apiKey, taskId) {
   const resp = await request(apiKey, `${VIDEO_TASKS_BASE}/${encodeURIComponent(taskId)}`);
+  return resp.json();
+}
+
+export async function pollImageTask(apiKey, taskId) {
+  const resp = await request(apiKey, `${IMAGE_TASKS_BASE}/${encodeURIComponent(taskId)}`);
   return resp.json();
 }
 
