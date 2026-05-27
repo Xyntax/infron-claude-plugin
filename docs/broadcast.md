@@ -8,6 +8,24 @@ commands aren't exposed in the chat box.
 
 ---
 
+## URGENT — for anyone who installed before 2026-05-27
+
+⚠️ A version-pinning bug shipped in v0.1.0 means existing installs are stuck on
+the original release and missed every fix since (gpt-image-2 image generation,
+3 Veo video tools, image-to-image, etc.). The fix is now live — to pick it up,
+**every existing user needs to run this once**:
+
+Paste into Claude Code Desktop chat:
+
+```
+Update the Infron plugin: run `claude plugin marketplace update infron-tools && claude plugin update infron@infron-tools` in Bash. Then tell me to restart Claude.
+```
+
+Click Allow, restart Claude. Future updates will be automatic at session
+startup — this manual step is only needed once to escape the pinned version.
+
+---
+
 ## Short version (Feishu DM / channel post)
 
 > **Infron is now available inside Claude Code Desktop.**
