@@ -6,17 +6,24 @@ Once installed, Claude routes any image or video request to the Infron API
 automatically. Chat completion is opt-in — you have to explicitly ask "use
 infron chat" for it to fire.
 
-## Install (two lines)
+## Install (one paste)
 
-In Claude Code or Cowork, paste:
+Open any Claude Code Desktop session and paste this into the chat:
 
 ```text
-/plugin marketplace add Xyntax/infron-claude-plugin
-/plugin install infron@infron-tools
+Install the Infron plugin for me. Run this in Bash:
+claude plugin marketplace add Xyntax/infron-claude-plugin && claude plugin install infron@infron-tools
+
+After it succeeds, tell me to restart Claude.
 ```
 
-The first time you ask Claude to generate something, it'll walk you through
+Click "Allow" when Claude asks for Bash permission. Restart Claude. The
+first time you ask Claude to generate something, it'll walk you through
 saving your Infron API key. You only do this once.
+
+**Why this and not `/plugin install ...` directly?** The CLI subcommands
+work on every version of Claude Code Desktop; the `/plugin` chat slash
+commands are newer and not yet exposed in older or managed installs.
 
 ## What you get
 

@@ -2,20 +2,26 @@
 
 Drop these into Feishu / Slack / email when the plugin ships.
 
+The install path uses natural language + the Bash tool — it works on every
+Claude Code Desktop version, including older ones where `/plugin` slash
+commands aren't exposed in the chat box.
+
 ---
 
 ## Short version (Feishu DM / channel post)
 
-> **Infron is now available inside Claude Code and Cowork.**
+> **Infron is now available inside Claude Code Desktop.**
 >
-> You can ask Claude to generate images and videos using Infron's models,
-> directly from any Claude session. Paste these two lines into Claude (Code
-> or Cowork) — that's the entire install:
+> Open any Claude Code session and paste this into the chat:
 >
 > ```
-> /plugin marketplace add Xyntax/infron-claude-plugin
-> /plugin install infron@infron-tools
+> Install the Infron plugin for me. Run this in Bash:
+> claude plugin marketplace add Xyntax/infron-claude-plugin && claude plugin install infron@infron-tools
+>
+> After it succeeds, tell me to restart Claude.
 > ```
+>
+> Click "Allow" when Claude asks for Bash permission. Restart Claude. Done.
 >
 > Then try: *"Use infron to draw a poster for our launch."* Claude will ask
 > you for an Infron API key the first time — copy one from
@@ -31,30 +37,35 @@ Drop these into Feishu / Slack / email when the plugin ships.
 
 ## Long version (announcement email)
 
-**Subject:** Try Infron from inside Claude
+**Subject:** Try Infron from inside Claude Code
 
 Hi team,
 
-We've built a Claude plugin that gives the whole team access to Infron's
-image, video, and chat models from inside Claude Code and Claude Cowork. No
-more bouncing between tools — you tell Claude what you want, and it routes
-to Infron automatically.
+We've shipped a Claude Code plugin that gives everyone access to Infron's
+image, video, and chat models from inside Claude Code Desktop. No more
+bouncing between tools — you tell Claude what you want and it routes to
+Infron automatically.
 
-**Install (one-time, takes 30 seconds):**
+**Install (one paste, ~30 seconds):**
 
-Open Claude Code or Cowork. Paste these two lines:
+Open any Claude Code Desktop session and paste this into the chat:
 
 ```
-/plugin marketplace add Xyntax/infron-claude-plugin
-/plugin install infron@infron-tools
+Install the Infron plugin for me. Run this in Bash:
+claude plugin marketplace add Xyntax/infron-claude-plugin && claude plugin install infron@infron-tools
+
+After it succeeds, tell me to restart Claude.
 ```
+
+Click "Allow" when Claude asks for Bash permission. Restart your Claude
+Code session. The plugin is now active.
 
 **First-time key setup:**
 
 When you first ask Claude to generate an image or video, it'll walk you
 through pasting an Infron API key. Get one from
 https://infron.ai/dashboard/apiKeys. The key is saved to `~/.infron/config`
-on your machine only.
+on your machine only — never uploaded anywhere.
 
 **Try these:**
 
@@ -80,3 +91,19 @@ You pay through your own Infron account. Top up at the dashboard.
 - DM me directly for anything urgent.
 
 — Lawrence
+
+---
+
+## If the user's environment doesn't have a Bash tool
+
+(Rare — but possible in heavily-restricted enterprise Claude Code installs.)
+
+They'll need to run the install commands in Terminal directly:
+
+```sh
+claude plugin marketplace add Xyntax/infron-claude-plugin
+claude plugin install infron@infron-tools
+```
+
+If they don't have the `claude` CLI at all, they need to install Claude Code
+Desktop first from https://claude.com/code.

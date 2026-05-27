@@ -1,152 +1,129 @@
-# E2E walkthrough — T10–T17
+# Manual E2E walkthrough
 
-Run these after the plugin is pushed to GitHub so we exercise the install path
-end-users will take.
+A complete-from-zero test that anyone can run in Claude Code Desktop. Designed
+to validate the install path a non-technical team member will take.
 
-## Setup
+## Step 1 — Reset state (in a terminal)
 
-- Open a **separate** terminal (don't run inside the Claude session that owns
-  this repo, to avoid plugin caching weirdness).
-- Make a scratch dir to use as cwd:
-  ```sh
-  mkdir -p ~/tmp/infron-plugin-e2e && cd ~/tmp/infron-plugin-e2e
-  claude
-  ```
-- For T15/T16 you'll need to mess with `~/.infron/config`. Back it up first:
-  ```sh
-  cp ~/.infron/config ~/.infron/config.bak 2>/dev/null || true
-  ```
+Open Terminal and paste:
 
----
-
-## T10 — `claude plugin install` + MCP server spawn
-
-In the new Claude session:
-
-```text
-/plugin marketplace add Xyntax/infron-claude-plugin
-/plugin install infron@infron-tools
-```
-
-**Expected:**
-- Both commands succeed
-- `/plugin list` shows `infron@infron-tools` as installed
-- `claude --debug` (separately) shows the MCP server starts without errors
-
----
-
-## T11 — Image tool fires on "infron" keyword
-
-Prompt: `Use infron to draw a small red circle on a white background, 1:1 aspect.`
-
-**Expected:**
-- Claude calls `mcp__infron__image` with `prompt`, `aspect: "1:1"`, default model `google/nano-banana-pro-text-to-image`
-- A PNG appears in cwd (e.g. `infron-image-...png`)
-- Claude reports the saved path and the ~$0.15 cost
-- Total spent: $0.15
-
----
-
-## T13 — Hijack: "draw an image" without infron keyword still routes to Infron
-
-Prompt: `Draw an image of a green square.`
-
-**Expected:**
-- Claude STILL calls `mcp__infron__image` (the `infron-defaults` skill applies)
-- New PNG in cwd
-- Total spent: $0.15
-
----
-
-## T14 — Chat NOT hijacked
-
-Prompt: `Hello, how are you today?`
-
-**Expected:**
-- Claude responds in plain prose, **without** calling `mcp__infron__chat`
-- No spend
-
-Prompt: `Use infron chat with google/gemini-2.5-flash to say "ping" in one word.`
-
-**Expected:**
-- Claude calls `mcp__infron__chat` with `model: "google/gemini-2.5-flash"`
-- Returns a reply
-- Total spent: < $0.01
-
----
-
-## T15 — Setup flow when no key configured
-
-In another terminal:
 ```sh
+# Save any existing config so we can restore it later
+mkdir -p ~/tmp/infron-e2e-reset
+cp ~/.infron/config ~/tmp/infron-e2e-reset/config.bak 2>/dev/null || true
+
+# Remove any prior install so we start truly from zero
+claude plugin uninstall infron@infron-tools 2>/dev/null || true
+claude plugin marketplace remove infron-tools 2>/dev/null || true
+
+# Hide the local config so the "no key" path is testable
 rm -f ~/.infron/config
-unset INFRON_API_KEY   # if it's set in your shell, this only affects the test shell
+
+# Verify clean
+echo "--- post-reset state ---"
+claude plugin list | grep -i infron || echo "✓ no infron plugin installed"
+claude plugin marketplace list | grep -i infron || echo "✓ no infron marketplace"
+ls ~/.infron/config 2>/dev/null || echo "✓ no ~/.infron/config"
 ```
 
-Restart the test Claude session (so the MCP server reloads without the env
-var). Prompt: `Use infron to draw a blue triangle.`
+## Step 2 — Make sure INFRON_API_KEY isn't leaking to the MCP server
 
-**Expected:**
-- First tool call returns `need_setup: true` error
-- Claude triggers the `infron-setup` skill
-- Claude opens https://infron.ai/dashboard/apiKeys in browser
-- Claude asks you to paste the key
-- After paste, `mcp__infron__save_config` runs, verifies via `/v1/models`, writes `~/.infron/config`
-- Original draw request retries and succeeds
-- Total spent: $0.15
+Claude Code Desktop launched from the Dock/Spotlight on macOS does NOT
+inherit `~/.zshrc`, so the MCP server it spawns has a clean env. But if you
+ever launched Claude Code from a terminal where `INFRON_API_KEY` was set,
+the app keeps that env until it's fully quit.
 
----
+To be safe:
 
-## T16 — Invalid key path
+1. ⌘Q Claude Code completely (not just close window)
+2. Relaunch from Spotlight (`⌘Space` → "Claude")
 
-```sh
-echo '{"apiKey":"sk-bogus"}' > ~/.infron/config
-```
+## Step 3 — Open a fresh folder
 
-Prompt: `Use infron to draw anything.`
+In Finder: create `~/Desktop/infron-test/` (empty folder). In Claude Code
+Desktop, "Open Folder" → pick `~/Desktop/infron-test`.
 
-**Expected:**
-- Tool returns `auth_failed` error
-- Claude surfaces the dashboard URL and offers to re-run setup
+## Step 4 — Sanity check before installing
 
-Restore:
-```sh
-cp ~/.infron/config.bak ~/.infron/config   # if you backed it up
-```
-
----
-
-## T17 — Uninstall removes the hijack
+Paste into Claude:
 
 ```text
-/plugin uninstall infron@infron-tools
+What is my current working directory? Do you currently have any tools whose names start with `mcp__infron__`? Also, run `printenv | grep INFRON` and tell me what it shows.
 ```
 
-Prompt: `Draw an image of a sunset.`
+**Pass criteria:**
+- cwd is `~/Desktop/infron-test`
+- No `mcp__infron__*` tools
+- `printenv` shows no `INFRON_API_KEY` (if it does, see Step 2)
 
-**Expected:**
-- Claude does NOT call `mcp__infron__*` (the MCP server is gone)
-- Claude either declines (no native image tool) or uses whatever built-in image generation Code/Cowork ships
+## Step 5 — Install via natural language
 
----
+Paste:
 
-## Cleanup
+```text
+Install the Infron plugin for me. Run this in Bash:
+claude plugin marketplace add Xyntax/infron-claude-plugin && claude plugin install infron@infron-tools
+
+After it succeeds, tell me to restart Claude.
+```
+
+**Pass criteria:**
+- Claude asks for Bash permission — click Allow
+- Both commands succeed (marketplace added, plugin installed)
+- Claude tells you to restart
+
+Restart Claude Code (close window + ⌘Q to fully quit, then relaunch + reopen
+the `infron-test` folder).
+
+## Step 6 — Verify tools are now available
+
+Paste:
+
+```text
+Do you now have `mcp__infron__image`, `mcp__infron__video`, `mcp__infron__chat` available? List them.
+```
+
+**Pass criteria:** all three (plus `infron__list_models`, `infron__check_setup`, `infron__save_config`) are listed.
+
+## Step 7 — The actual test prompts
+
+| # | Paste | Expected | Cost |
+|---|---|---|---|
+| T15 | `Use infron to draw a small blue triangle.` | First call returns `need_setup` → `infron-setup` skill triggers → asks for your API key → opens dashboard → you paste a real key → key saved → image generates | $0.15 |
+| T11 | `Use infron to draw a red circle, 1:1.` | Image tool fires directly, no setup prompt this time. PNG in cwd | $0.15 |
+| T13 *(hijack)* | `Draw a green square.` | Image tool fires even without "infron" keyword | $0.15 |
+| T14a *(no hijack)* | `Hello, just respond in plain text.` | No `mcp__infron__chat` call. Plain prose | $0 |
+| T14b *(opt-in)* | `Use infron chat with google/gemini-2.5-flash to say "pong".` | Chat tool fires | <$0.01 |
+| T17 *(uninstall)* | `Uninstall the Infron plugin for me. Run "claude plugin uninstall infron@infron-tools" in Bash.` then restart Claude, then: `Draw a sunset.` | No `mcp__infron__*` call possible | $0 |
+
+**Total: ~$0.45.** Skip T12 (video, $3.20) — release CI catches Veo
+regressions when you tag a release.
+
+## Step 8 — Restore
+
+Open Terminal:
 
 ```sh
-# Restore your key file (if you backed it up)
-mv ~/.infron/config.bak ~/.infron/config 2>/dev/null || true
+# Restore the API key config if you had one
+[ -f ~/tmp/infron-e2e-reset/config.bak ] && cp ~/tmp/infron-e2e-reset/config.bak ~/.infron/config
 
-# Restore export INFRON_API_KEY in your shell if needed
-source ~/.zshrc
+# Reinstall plugin for daily use
+claude plugin marketplace add Xyntax/infron-claude-plugin 2>/dev/null
+claude plugin install infron@infron-tools
+
+# Clean up scratch
+rm -rf ~/Desktop/infron-test ~/tmp/infron-e2e-reset
+
+echo "✓ restored"
 ```
 
-## Total cost of full walkthrough
+## Failure modes
 
-- T11: $0.15
-- T13: $0.15
-- T14: <$0.01
-- T15: $0.15
-- T16: $0 (only fails)
-- ≈ $0.45 total
-
-Skip T12 (video, $3.20) in manual walkthrough — let release CI handle it on tag.
+| Symptom | Likely cause | Fix |
+|---|---|---|
+| Claude refuses to run Bash ("permission denied") | Bash tool gated by enterprise settings | Check `~/.claude/settings.json` and `/etc/claude-code/managed-settings.json` for `Bash` denylists |
+| `claude: command not found` inside Bash | `claude` CLI isn't on the GUI app's PATH | Either re-install Claude Code from the official installer, or run the install commands directly in Terminal |
+| `plugin marketplace add` errors with "unable to authenticate" | Git over SSH not set up, and HTTPS fallback didn't kick in | Pass the explicit URL: `claude plugin marketplace add https://github.com/Xyntax/infron-claude-plugin.git` |
+| Tools show up but Claude refuses to call them | Tool permissions set to "ask each time" | Approve on first call, or change to "always allow" |
+| Setup skill triggers but Chrome doesn't open | Chrome MCP not loaded in that session | Skill will print the dashboard URL — copy/paste into your browser manually |
+| `infron__image` returns `auth_failed` after key paste | Key typo or trailing whitespace | Re-run setup; paste carefully |
