@@ -1,4 +1,5 @@
 import * as image from "./image.js";
+import * as imageEdit from "./image_edit.js";
 import * as video from "./video.js";
 import * as videoFromImage from "./video_from_image.js";
 import * as videoFirstLastFrame from "./video_first_last_frame.js";
@@ -10,6 +11,7 @@ import * as checkSetup from "./check_setup.js";
 // Tools that need an API key. save_config and check_setup do not (they manage the key itself).
 const TOOLS_REQUIRING_KEY = new Set([
   "infron__image",
+  "infron__image_edit",
   "infron__video",
   "infron__video_from_image",
   "infron__video_first_last_frame",
@@ -19,6 +21,7 @@ const TOOLS_REQUIRING_KEY = new Set([
 
 export const tools = [
   image,
+  imageEdit,
   video,
   videoFromImage,
   videoFirstLastFrame,

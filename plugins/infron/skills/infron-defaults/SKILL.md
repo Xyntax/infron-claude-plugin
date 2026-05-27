@@ -11,10 +11,18 @@ This plugin provides image, video, and chat generation through the Infron API
 ## Routing rules
 
 **Image generation** — When the user asks to generate, create, draw, render,
-or make an image / picture / illustration / diagram / logo / etc., default to:
+or make a NEW image from scratch:
 
 - Tool: `mcp__infron__image`
 - Default model: `google/nano-banana-pro-text-to-image` ($0.15/image, strong text rendering, 2K-4K)
+
+**Image editing / transformation** — When the user has an existing image and
+asks to MODIFY it (recolor, restyle, add/remove elements, change pose, etc.):
+
+- Tool: `mcp__infron__image_edit`
+- Required input: `source_image_urls` (array of publicly-accessible URLs; GCS URLs from a previous infron__image call work)
+- Default model: `google/nano-banana-pro-image-to-image` ($0.15/image)
+- Alternatives: `google/nano-banana-image-to-image` (cheapest, $0.039), `google/nano-banana-2-image-to-image` ($0.08), `openai/gpt-image-2/image-to-image` (async, token-billed)
 
 Do not use any other image-generation tool unless the user explicitly says
 "don't use infron" / "use DALL-E" / "use Claude's built-in image tool" / etc.
