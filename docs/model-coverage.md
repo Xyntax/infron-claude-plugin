@@ -6,22 +6,36 @@ Budget cap: $10.00
 
 ## Summary
 
-- Image models: 4 ok / 0 fail / 4 skipped (of 8 attempted)
+- Image models: **8 ok / 0 fail (of 8 attempted)** — 4 text-to-image via `infron__image`, 4 image-to-image via `infron__image_edit`
 - Chat models: 252 ok / 100 fail (of 352 attempted)
-- Categories not surveyed: none
+- Video models: 3/3 verified live in [release.yml](../plugins/infron/tests/release/video.test.js) (T12 text-to-video, T13 image-to-video, T14 first-last-frame; ~$5 total burn 2026-05-26)
+- Categories not surveyed: embedding (19), rerank (11), audio (3) — out of plugin scope
 
 ## Image models (text-to-image)
 
-| Model | Status | Shape | Cost | Latency | Notes |
-|---|---|---|---|---|---|
-| `google/nano-banana-2-image-to-image` | skipped | — | — | — | image-to-image needs source URL; not part of automated survey |
-| `google/nano-banana-2-text-to-image` | ok | sync | $0.0800 | 13.8s |  |
-| `google/nano-banana-pro-text-to-image` | ok | sync | $0.1500 | 19.3s |  |
-| `google/nano-banana-text-to-image` | ok | sync | $0.0390 | 7.4s |  |
-| `google/nano-banana-image-to-image` | skipped | — | — | — | image-to-image needs source URL; not part of automated survey |
-| `google/nano-banana-pro-image-to-image` | skipped | — | — | — | image-to-image needs source URL; not part of automated survey |
-| `openai/gpt-image-2/text-to-image` | ok | async | $0.0059 | 12.6s | task_id |
-| `openai/gpt-image-2/image-to-image` | skipped | — | — | — | image-to-image needs source URL; not part of automated survey |
+Tool: `infron__image`. Surveyed 2026-05-27 via `scripts/survey-models.js`.
+
+| Model | Status | Shape | Cost | Latency |
+|---|---|---|---|---|
+| `google/nano-banana-text-to-image` | ok | sync | $0.039 | 7.4s |
+| `google/nano-banana-2-text-to-image` | ok | sync | $0.08 | 13.8s |
+| `google/nano-banana-pro-text-to-image` | ok | sync | $0.15 | 19.3s |
+| `openai/gpt-image-2/text-to-image` | ok | async | $0.006 | 12.6s |
+
+## Image models (image-to-image)
+
+Tool: `infron__image_edit` — requires `source_image_urls` array. Verified
+live 2026-05-27 by generating a red-apple source image with nano-banana,
+then asking each model to "transform into a green pear". All four downloaded
+non-zero MP4s — auto-translation of aspect ratio to pixel size works on
+gpt-image-2.
+
+| Model | Status | Shape | Cost | Latency |
+|---|---|---|---|---|
+| `google/nano-banana-image-to-image` | ok | sync | $0.039 | 10.2s |
+| `google/nano-banana-2-image-to-image` | ok | sync | $0.08 | 16.0s |
+| `google/nano-banana-pro-image-to-image` | ok | sync | $0.15 | 22.7s |
+| `openai/gpt-image-2/image-to-image` | ok | async | ~$0.006 | 26.0s |
 
 ## Chat models
 
