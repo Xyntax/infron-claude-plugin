@@ -11,10 +11,10 @@ export const definition = {
   description:
     `Animate a still IMAGE into a video. Pass the publicly-accessible URL of a still image as start_image_url; the model continues the scene with motion.
 
-Default model: google/veo3.1/image-to-video (~$0.40/sec, up to 1080p, native audio).
-Cheaper alternative: bytedance/seedance-2.0/image-to-video (~$0.15/sec, up to 720p) — select it via the \`model\` parameter; append the \`/fast/\` tier for quicker turnaround.
+Default model: bytedance/seedance-2.0/image-to-video (~$0.15/sec, up to 720p, no native audio).
+Higher-quality alternative: google/veo3.1/image-to-video (~$0.40/sec, up to 1080p, native audio) — select it via the \`model\` parameter. Append the Seedance \`/fast/\` tier for quicker turnaround.
 
-⚠️  COST WARNING: video costs real money and varies by model (Veo ~$3.20 for 8s; Seedance ~$0.61 for 4s @ 720p). The true charge is returned as actual_cost_usd.
+⚠️  COST WARNING: video costs real money and varies by model (Seedance ~$0.61 for 4s @ 720p; Veo ~$3.20 for 8s). The true charge is returned as actual_cost_usd.
 
 CRITICAL: Before calling this tool, you MUST verbally confirm the cost with the user in conversation. Set the \`confirmed\` parameter to true only after they explicitly confirm.
 
@@ -44,7 +44,7 @@ For dialogue/character-switching, use infron__video_first_last_frame.`,
       },
       model: {
         type: "string",
-        description: `Optional. Default: ${DEFAULTS.videoImageToVideo} (Veo, ~$0.40/sec, ≤1080p). Cheaper: bytedance/seedance-2.0/image-to-video (~$0.15/sec, ≤720p) or its /fast/ tier.`,
+        description: `Optional. Default: ${DEFAULTS.videoImageToVideo} (Seedance, ~$0.15/sec, ≤720p). Faster: bytedance/seedance-2.0/fast/image-to-video. Higher quality (≤1080p + native audio): google/veo3.1/image-to-video.`,
       },
       duration: {
         type: "string",

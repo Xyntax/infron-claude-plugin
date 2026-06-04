@@ -95,6 +95,7 @@ describe("infron__video_from_image", () => {
       {
         prompt: "animate the cat",
         confirmed: true,
+        model: "google/veo3.1/image-to-video",
         start_image_url: "https://example.com/cat.png",
         duration: "4s",
         output_path: out,

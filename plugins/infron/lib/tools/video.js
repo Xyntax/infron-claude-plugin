@@ -11,10 +11,10 @@ export const definition = {
   description:
     `Generate a video from a TEXT prompt via Infron.
 
-Default model: google/veo3.1/text-to-video (~$0.40/sec, up to 1080p, native audio).
-Cheaper alternative: bytedance/seedance-2.0/text-to-video (~$0.15/sec, up to 720p, 4–15s) — select it via the \`model\` parameter; append the \`/fast/\` tier for quicker turnaround.
+Default model: bytedance/seedance-2.0/text-to-video (~$0.15/sec, up to 720p, 4–15s, no native audio).
+Higher-quality alternative: google/veo3.1/text-to-video (~$0.40/sec, up to 1080p, native audio) — select it via the \`model\` parameter. Append the Seedance \`/fast/\` tier for quicker turnaround.
 
-⚠️  COST WARNING: video costs real money and varies by model (Veo ~$3.20 for 8s; Seedance ~$0.61 for 4s @ 720p). The true charge is returned as actual_cost_usd.
+⚠️  COST WARNING: video costs real money and varies by model (Seedance ~$0.61 for 4s @ 720p; Veo ~$3.20 for 8s). The true charge is returned as actual_cost_usd.
 
 CRITICAL: Before calling this tool, you MUST verbally confirm the cost with the user in conversation. Phrase it like: "This will generate an 8-second video for about $3.20. Confirm to proceed?" Wait for explicit yes/no. Do not call speculatively or as a test.
 
@@ -40,7 +40,7 @@ The tool submits the job, polls until completion (~60–300 seconds), and saves 
       },
       model: {
         type: "string",
-        description: `Optional. Default: ${DEFAULTS.videoTextToVideo} (Veo, ~$0.40/sec, ≤1080p, native audio). Cheaper: bytedance/seedance-2.0/text-to-video (~$0.15/sec, ≤720p) or its bytedance/seedance-2.0/fast/text-to-video tier. Use infron__list_models to discover more.`,
+        description: `Optional. Default: ${DEFAULTS.videoTextToVideo} (Seedance, ~$0.15/sec, ≤720p). Faster: bytedance/seedance-2.0/fast/text-to-video. Higher quality (≤1080p + native audio): google/veo3.1/text-to-video. Use infron__list_models to discover more.`,
       },
       duration: {
         type: "string",

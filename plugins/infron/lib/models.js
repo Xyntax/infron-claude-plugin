@@ -1,9 +1,13 @@
 // Default model selections per task type. Override at call time with the `model` parameter.
+// Video text/image default to Seedance 2.0 (cheaper, ~$0.15/sec; replaces Veo as
+// the house default per product direction 2026-06). Veo stays available via the
+// `model` param for 1080p / native audio, and remains the default for the
+// first-last-frame variant (Seedance has no first-last-frame model).
 export const DEFAULTS = {
   image: "google/nano-banana-pro-text-to-image",
   imageEdit: "google/nano-banana-pro-image-to-image",
-  videoTextToVideo: "google/veo3.1/text-to-video",
-  videoImageToVideo: "google/veo3.1/image-to-video",
+  videoTextToVideo: "bytedance/seedance-2.0/text-to-video",
+  videoImageToVideo: "bytedance/seedance-2.0/image-to-video",
   videoFirstLastFrame: "google/veo3.1/first-last-frame-to-video",
 };
 

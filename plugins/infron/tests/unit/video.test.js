@@ -55,12 +55,12 @@ describe("infron__video tool — duration validation", () => {
     expect(JSON.parse(result.content[0].text).error_type).toBe("bad_request");
   });
 
-  it("rejects bare string without 's' suffix", async () => {
-    const result = await videoHandler({ prompt: "x", confirmed: true, duration: "8" }, { apiKey: "k" });
+  it("rejects bare string without 's' suffix (Veo format)", async () => {
+    const result = await videoHandler({ prompt: "x", confirmed: true, model: "google/veo3.1/text-to-video", duration: "8" }, { apiKey: "k" });
     expect(result.isError).toBe(true);
   });
 
-  it("accepts '4s' and completes the flow", async () => {
+  it("accepts '4s' and completes the flow (Veo)", async () => {
     currentSpy = mockFetch([
       { match: "/videos/generations", response: { status: 200, json: { data: { task_id: "t-1" } } } },
       {
@@ -70,7 +70,7 @@ describe("infron__video tool — duration validation", () => {
       { match: "cdn/v.mp4", response: { status: 200, text: "" } },
     ]);
     const out = tmpFile();
-    const result = await videoHandler({ prompt: "x", confirmed: true, duration: "4s", output_path: out }, { apiKey: "k" });
+    const result = await videoHandler({ prompt: "x", confirmed: true, model: "google/veo3.1/text-to-video", duration: "4s", output_path: out }, { apiKey: "k" });
     const parsed = JSON.parse(result.content[0].text);
     expect(parsed.status).toBe("success");
     expect(parsed.duration).toBe("4s");
