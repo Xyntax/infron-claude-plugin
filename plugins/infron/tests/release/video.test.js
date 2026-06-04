@@ -1,17 +1,22 @@
 /**
- * Release tests — Veo video variants against the real API.
+ * Release tests — video variants against the real API.
+ *
+ * T12–T14 verify Veo 3.1, with the model PINNED explicitly: this suite is the
+ * Veo safety net and must keep testing Veo regardless of which model is the
+ * house default. T15 verifies the current default video model (Seedance 2.0).
  *
  * Gated by INFRON_RUN_RELEASE=1 so this NEVER fires on push/PR.
  *
  * Cost when run end-to-end:
- *   T12  text-to-video       4s @ $0.40/s = $1.60
- *   T13  image-to-video      4s @ $0.40/s = $1.60 + $0.15 keyframe = $1.75
- *   T14  first-last-frame    4s @ $0.40/s = $1.60 + 2 × $0.15 keyframes = $1.90
+ *   T12  text-to-video      (Veo)       4s @ $0.40/s = $1.60
+ *   T13  image-to-video     (Veo)       4s = $1.60 + $0.15 keyframe = $1.75
+ *   T14  first-last-frame   (Veo)       4s = $1.60 + 2 × $0.15 keyframes = $1.90
+ *   T15  text-to-video      (Seedance)  4s @ ~$0.153/s @720p ≈ $0.61
  *   ─────────────────────────────────────────────────────────────────────
- *   Total: ~$5.25
+ *   Total: ~$5.86
  *
  * The keyframe images are generated via nano-banana-pro and re-used so
- * we're testing the same Veo pipeline a real user would hit.
+ * we're testing the same pipeline a real user would hit.
  */
 import { describe, it, expect, beforeAll } from "vitest";
 import fs from "node:fs";
@@ -39,7 +44,7 @@ const state = { apiKey: null, startUrl: null, endUrl: null };
 const VIDEO_TIMEOUT_MS = 10 * 60_000;
 const KEYFRAME_TIMEOUT_MS = 2 * 60_000;
 
-(SHOULD_RUN ? describe : describe.skip)("release: Veo video variants", () => {
+(SHOULD_RUN ? describe : describe.skip)("release: video variants (Veo pinned + Seedance default)", () => {
   beforeAll(async () => {
     state.apiKey = getApiKey();
     if (!state.apiKey) throw new Error("INFRON_API_KEY required for release tests");
@@ -52,7 +57,7 @@ const KEYFRAME_TIMEOUT_MS = 2 * 60_000;
       {
         prompt: "A red apple resting on a wooden table, soft natural light, gentle camera dolly forward.",
         confirmed: true,
-        model: DEFAULTS.videoTextToVideo,
+        model: "google/veo3.1/text-to-video", // pinned: Veo safety net, independent of default
         duration: "4s",
         resolution: "720p",
         aspect_ratio: "16:9",
@@ -97,7 +102,7 @@ const KEYFRAME_TIMEOUT_MS = 2 * 60_000;
         prompt: "The cherry blossom slowly rotates clockwise; petals catch glints of light.",
         confirmed: true,
         start_image_url: startUrl,
-        model: DEFAULTS.videoImageToVideo,
+        model: "google/veo3.1/image-to-video", // pinned: Veo safety net
         duration: "4s",
         resolution: "720p",
         aspect_ratio: "16:9",
@@ -160,7 +165,7 @@ const KEYFRAME_TIMEOUT_MS = 2 * 60_000;
         confirmed: true,
         start_image_url: startUrl,
         end_image_url: endUrl,
-        model: DEFAULTS.videoFirstLastFrame,
+        model: "google/veo3.1/first-last-frame-to-video", // pinned: Veo safety net
         duration: "4s",
         resolution: "720p",
         aspect_ratio: "16:9",
@@ -178,4 +183,34 @@ const KEYFRAME_TIMEOUT_MS = 2 * 60_000;
     if (fs.existsSync(endPath)) fs.unlinkSync(endPath);
     logCost("T14.first-last-frame-4s", 1.60);
   }, VIDEO_TIMEOUT_MS + 2 * KEYFRAME_TIMEOUT_MS);
+
+  // T15 — Seedance 2.0 text-to-video: the current DEFAULT video model.
+  // Uses DEFAULTS.videoTextToVideo so a future default change is caught here.
+  // ~$0.61 @ 4s/720p. Seedance params: bare-int duration, ≤720p.
+  it("T15: text-to-video (Seedance 2.0, the default) generates a 4s 720p clip (~$0.61)", async () => {
+    expect(DEFAULTS.videoTextToVideo).toMatch(/seedance/); // guard: this test assumes Seedance is default
+    const tmp = path.join(os.tmpdir(), `infron-release-sd-t2v-${Date.now()}.mp4`);
+    const result = await videoHandler(
+      {
+        prompt: "A red apple resting on a wooden table, soft natural light, gentle camera dolly forward.",
+        confirmed: true,
+        model: DEFAULTS.videoTextToVideo,
+        duration: "4",
+        resolution: "720p",
+        aspect_ratio: "16:9",
+        output_path: tmp,
+      },
+      { apiKey: state.apiKey }
+    );
+    const parsed = JSON.parse(result.content[0].text);
+    expect(parsed.status).toBe("success");
+    expect(parsed.model).toMatch(/seedance/);
+    expect(parsed.duration).toBe("4");
+    expect(parsed.resolution).toBe("720p");
+    expect(typeof parsed.actual_cost_usd).toBe("number"); // gateway reports the real charge
+    expect(fs.existsSync(tmp)).toBe(true);
+    expect(fs.statSync(tmp).size).toBeGreaterThan(50_000);
+    fs.unlinkSync(tmp);
+    logCost("T15.seedance-text-to-video-4s", parsed.actual_cost_usd ?? 0.61);
+  }, VIDEO_TIMEOUT_MS);
 });
