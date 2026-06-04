@@ -1,7 +1,7 @@
 import { DEFAULTS } from "../models.js";
 import {
   confirmationGate,
-  validateDuration,
+  validateVideoParams,
   submitPollDownload,
   defaultOutputPath,
 } from "./_video_common.js";
@@ -9,9 +9,9 @@ import {
 export const definition = {
   name: "infron__video_first_last_frame",
   description:
-    `Generate a video that animates between TWO keyframes via Veo 3.1 first-last-frame-to-video. Pass start and end image URLs; Veo interpolates a coherent motion sequence between them.
+    `Generate a video that animates between TWO keyframes via Veo 3.1 first-last-frame-to-video. Pass start and end image URLs; Veo interpolates a coherent motion sequence between them. (This is a Veo capability — Seedance has no first-last-frame variant.)
 
-⚠️  COST WARNING: ~$0.40 per second. An 8-second clip is ~$3.20.
+⚠️  COST WARNING: ~$0.40 per second (Veo). An 8-second clip is ~$3.20. The true charge is returned as actual_cost_usd.
 
 CRITICAL: Before calling this tool, you MUST verbally confirm the cost with the user in conversation. Set the \`confirmed\` parameter to true only after they explicitly confirm.
 
@@ -48,7 +48,7 @@ For animating a single image without an end frame, use infron__video_from_image.
       },
       duration: {
         type: "string",
-        description: "'4s' or '8s'. Default: '8s'. Must be a string with 's' suffix.",
+        description: "Veo: '4s' or '8s' (default '8s'). Must be a string with the 's' suffix.",
       },
       aspect_ratio: {
         type: "string",
@@ -60,7 +60,7 @@ For animating a single image without an end frame, use infron__video_from_image.
       },
       generate_audio: {
         type: "boolean",
-        description: "Generate audio track. Default: true.",
+        description: "Generate an audio track. Default: true (Veo native audio).",
       },
       output_path: {
         type: "string",
@@ -71,12 +71,10 @@ For animating a single image without an end frame, use infron__video_from_image.
 };
 
 export async function handler(args, ctx) {
-  const gate = confirmationGate(args);
-  if (gate) return gate;
+  const model = args.model || DEFAULTS.videoFirstLastFrame;
 
-  const duration = args.duration || "8s";
-  const dv = validateDuration(duration);
-  if (dv) return dv;
+  const gate = confirmationGate(args, model);
+  if (gate) return gate;
 
   for (const field of ["start_image_url", "end_image_url"]) {
     if (!args[field] || typeof args[field] !== "string") {
@@ -94,15 +92,15 @@ export async function handler(args, ctx) {
     }
   }
 
+  const v = validateVideoParams(model, args);
+  if (v.error) return v.error;
+
   const payload = {
-    model: args.model || DEFAULTS.videoFirstLastFrame,
+    model,
     prompt: args.prompt,
     start_image_url: args.start_image_url,
     end_image_url: args.end_image_url,
-    duration,
-    aspect_ratio: args.aspect_ratio || "16:9",
-    resolution: args.resolution || "1080p",
-    generate_audio: args.generate_audio !== false,
+    ...v.params,
   };
 
   return submitPollDownload({

@@ -1,7 +1,7 @@
 import { DEFAULTS } from "../models.js";
 import {
   confirmationGate,
-  validateDuration,
+  validateVideoParams,
   submitPollDownload,
   defaultOutputPath,
 } from "./_video_common.js";
@@ -9,15 +9,20 @@ import {
 export const definition = {
   name: "infron__video_from_image",
   description:
-    `Animate a still IMAGE into a video via Veo 3.1 image-to-video. Pass the publicly-accessible URL of a still image as start_image_url; Veo continues the scene with motion.
+    `Animate a still IMAGE into a video. Pass the publicly-accessible URL of a still image as start_image_url; the model continues the scene with motion.
 
-⚠️  COST WARNING: ~$0.40 per second. An 8-second clip is ~$3.20.
+Default model: google/veo3.1/image-to-video (~$0.40/sec, up to 1080p, native audio).
+Cheaper alternative: bytedance/seedance-2.0/image-to-video (~$0.15/sec, up to 720p) — select it via the \`model\` parameter; append the \`/fast/\` tier for quicker turnaround.
+
+⚠️  COST WARNING: video costs real money and varies by model (Veo ~$3.20 for 8s; Seedance ~$0.61 for 4s @ 720p). The true charge is returned as actual_cost_usd.
 
 CRITICAL: Before calling this tool, you MUST verbally confirm the cost with the user in conversation. Set the \`confirmed\` parameter to true only after they explicitly confirm.
 
 Use this tool when:
   - The user has an existing image and wants it animated
   - You've just generated a still image with infron__image and the user wants motion added on top
+
+Note: duration / resolution / aspect_ratio accept different values per model family — an invalid value returns the allowed set for that model.
 
 For a purely text-driven video, use infron__video instead.
 For dialogue/character-switching, use infron__video_first_last_frame.`,
@@ -39,23 +44,23 @@ For dialogue/character-switching, use infron__video_first_last_frame.`,
       },
       model: {
         type: "string",
-        description: `Optional. Default: ${DEFAULTS.videoImageToVideo}.`,
+        description: `Optional. Default: ${DEFAULTS.videoImageToVideo} (Veo, ~$0.40/sec, ≤1080p). Cheaper: bytedance/seedance-2.0/image-to-video (~$0.15/sec, ≤720p) or its /fast/ tier.`,
       },
       duration: {
         type: "string",
-        description: "'4s' or '8s'. Default: '8s'. Must be a string with 's' suffix.",
+        description: "Clip length, as a STRING. Veo: '4s' or '8s' (default '8s'). Seedance: '4'…'15' or 'auto' (default '4'). Format is model-specific; an integer or wrong format is rejected with the allowed set.",
       },
       aspect_ratio: {
         type: "string",
-        description: "'16:9' or '9:16'. Default: '16:9'.",
+        description: "Veo: '16:9' or '9:16'. Seedance also allows '21:9', '4:3', '1:1', '3:4'. Default: '16:9'.",
       },
       resolution: {
         type: "string",
-        description: "'720p' or '1080p'. Default: '1080p'.",
+        description: "Veo: '720p' or '1080p' (default '1080p'). Seedance: '480p' or '720p' (default '720p').",
       },
       generate_audio: {
         type: "boolean",
-        description: "Generate audio track. Default: true.",
+        description: "Generate an audio track. Veo: default true (native audio). Seedance: default false (no native audio track).",
       },
       output_path: {
         type: "string",
@@ -66,12 +71,10 @@ For dialogue/character-switching, use infron__video_first_last_frame.`,
 };
 
 export async function handler(args, ctx) {
-  const gate = confirmationGate(args);
-  if (gate) return gate;
+  const model = args.model || DEFAULTS.videoImageToVideo;
 
-  const duration = args.duration || "8s";
-  const dv = validateDuration(duration);
-  if (dv) return dv;
+  const gate = confirmationGate(args, model);
+  if (gate) return gate;
 
   if (!args.start_image_url || typeof args.start_image_url !== "string") {
     return {
@@ -87,14 +90,14 @@ export async function handler(args, ctx) {
     };
   }
 
+  const v = validateVideoParams(model, args);
+  if (v.error) return v.error;
+
   const payload = {
-    model: args.model || DEFAULTS.videoImageToVideo,
+    model,
     prompt: args.prompt,
     start_image_url: args.start_image_url,
-    duration,
-    aspect_ratio: args.aspect_ratio || "16:9",
-    resolution: args.resolution || "1080p",
-    generate_audio: args.generate_audio !== false,
+    ...v.params,
   };
 
   return submitPollDownload({

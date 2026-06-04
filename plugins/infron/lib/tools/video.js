@@ -1,7 +1,7 @@
 import { DEFAULTS } from "../models.js";
 import {
   confirmationGate,
-  validateDuration,
+  validateVideoParams,
   submitPollDownload,
   defaultOutputPath,
 } from "./_video_common.js";
@@ -9,13 +9,18 @@ import {
 export const definition = {
   name: "infron__video",
   description:
-    `Generate a video from a TEXT prompt via Infron (default: google/veo3.1/text-to-video).
+    `Generate a video from a TEXT prompt via Infron.
 
-⚠️  COST WARNING: video generation costs ~$0.40 per second. An 8-second clip is ~$3.20.
+Default model: google/veo3.1/text-to-video (~$0.40/sec, up to 1080p, native audio).
+Cheaper alternative: bytedance/seedance-2.0/text-to-video (~$0.15/sec, up to 720p, 4–15s) — select it via the \`model\` parameter; append the \`/fast/\` tier for quicker turnaround.
+
+⚠️  COST WARNING: video costs real money and varies by model (Veo ~$3.20 for 8s; Seedance ~$0.61 for 4s @ 720p). The true charge is returned as actual_cost_usd.
 
 CRITICAL: Before calling this tool, you MUST verbally confirm the cost with the user in conversation. Phrase it like: "This will generate an 8-second video for about $3.20. Confirm to proceed?" Wait for explicit yes/no. Do not call speculatively or as a test.
 
 Set the \`confirmed\` parameter to true only after the user has explicitly confirmed in this conversation.
+
+Note: duration / resolution / aspect_ratio accept different values per model family — an invalid value returns the allowed set for that model.
 
 For image-to-video, use infron__video_from_image instead.
 For dialogue/character-switching scenes, use infron__video_first_last_frame instead (avoids Veo's lip-sync bug on multi-character dialogue).
@@ -35,24 +40,23 @@ The tool submits the job, polls until completion (~60–300 seconds), and saves 
       },
       model: {
         type: "string",
-        description: `Optional. Default: ${DEFAULTS.videoTextToVideo}.`,
-        // For image-to-video use infron__video_from_image; for keyframe animation use infron__video_first_last_frame.
+        description: `Optional. Default: ${DEFAULTS.videoTextToVideo} (Veo, ~$0.40/sec, ≤1080p, native audio). Cheaper: bytedance/seedance-2.0/text-to-video (~$0.15/sec, ≤720p) or its bytedance/seedance-2.0/fast/text-to-video tier. Use infron__list_models to discover more.`,
       },
       duration: {
         type: "string",
-        description: "Duration string with 's' suffix ('4s' or '8s'). Default: '8s'. Must be a STRING — passing an integer is silently ignored server-side.",
+        description: "Clip length, as a STRING. Veo: '4s' or '8s' (default '8s'). Seedance: '4'…'15' or 'auto' (default '4'). Format is model-specific; an integer or wrong format is rejected with the allowed set.",
       },
       aspect_ratio: {
         type: "string",
-        description: "'16:9' (landscape) or '9:16' (portrait). Default: '16:9'.",
+        description: "Veo: '16:9' or '9:16'. Seedance also allows '21:9', '4:3', '1:1', '3:4'. Default: '16:9'.",
       },
       resolution: {
         type: "string",
-        description: "'720p' or '1080p'. Default: '1080p'.",
+        description: "Veo: '720p' or '1080p' (default '1080p'). Seedance: '480p' or '720p' (default '720p').",
       },
       generate_audio: {
         type: "boolean",
-        description: "Generate audio track. Default: true.",
+        description: "Generate an audio track. Veo: default true (native audio). Seedance: default false (no native audio track).",
       },
       output_path: {
         type: "string",
@@ -63,20 +67,18 @@ The tool submits the job, polls until completion (~60–300 seconds), and saves 
 };
 
 export async function handler(args, ctx) {
-  const gate = confirmationGate(args);
+  const model = args.model || DEFAULTS.videoTextToVideo;
+
+  const gate = confirmationGate(args, model);
   if (gate) return gate;
 
-  const duration = args.duration || "8s";
-  const dv = validateDuration(duration);
-  if (dv) return dv;
+  const v = validateVideoParams(model, args);
+  if (v.error) return v.error;
 
   const payload = {
-    model: args.model || DEFAULTS.videoTextToVideo,
+    model,
     prompt: args.prompt,
-    duration,
-    aspect_ratio: args.aspect_ratio || "16:9",
-    resolution: args.resolution || "1080p",
-    generate_audio: args.generate_audio !== false,
+    ...v.params,
   };
 
   return submitPollDownload({
