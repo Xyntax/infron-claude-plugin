@@ -2,8 +2,8 @@ import { describe, it, expect } from "vitest";
 import { tools, definitions, requiresKey, findHandler } from "../../lib/tools/index.js";
 
 describe("tools registry", () => {
-  it("exposes all 9 tools", () => {
-    expect(tools).toHaveLength(9);
+  it("exposes all 10 tools", () => {
+    expect(tools).toHaveLength(10);
   });
 
   it("every tool has a name, description, and JSON schema", () => {
@@ -26,6 +26,7 @@ describe("tools registry", () => {
       "infron__image_edit",
       "infron__video",
       "infron__video_from_image",
+      "infron__video_reference",
       "infron__video_first_last_frame",
       "infron__chat",
       "infron__list_models",
@@ -48,5 +49,6 @@ describe("tools registry", () => {
     const { PRICING, DEFAULTS } = await import("../../lib/models.js");
     expect(PRICING[DEFAULTS.image]).toBeDefined();
     expect(PRICING[DEFAULTS.videoTextToVideo]).toBeDefined();
+    expect(PRICING[DEFAULTS.videoReference]).toBeDefined();
   });
 });

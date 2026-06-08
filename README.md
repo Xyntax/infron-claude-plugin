@@ -33,8 +33,9 @@ After install, Claude has access to:
 |---|---|---|---|
 | `infron__image` | Generate an image (sync or async, model-dependent) and save the file | `google/nano-banana-pro-text-to-image` | $0.006–$0.15/image |
 | `infron__image_edit` | Edit / transform a source image (image-to-image) | `google/nano-banana-pro-image-to-image` | $0.006–$0.15/image |
-| `infron__video` | Generate a video from a text prompt (async, auto-polled) | `google/veo3.1/text-to-video` | ~$0.40/sec ($3.20 for 8s) |
-| `infron__video_from_image` | Animate a still image into a video | `google/veo3.1/image-to-video` | ~$0.40/sec |
+| `infron__video` | Generate a video from a text prompt (async, auto-polled) | `bytedance/seedance-2.0/text-to-video` | ~$0.15/sec (~$0.61 for 4s); Veo via `model` ~$0.40/sec |
+| `infron__video_from_image` | Animate a still image into a video | `bytedance/seedance-2.0/image-to-video` | ~$0.15/sec |
+| `infron__video_reference` | Generate a video featuring the person/subject in reference image(s) — the "face / portrait" workflow (identity preserved) | `bytedance/seedance-2.0/reference-to-video` | ~$0.15/sec (~$0.76 for 5s) |
 | `infron__video_first_last_frame` | Animate between two keyframes (dialogue, transitions) | `google/veo3.1/first-last-frame-to-video` | ~$0.40/sec |
 | `infron__chat` | OpenAI-compatible chat completion | (you specify) | per-token |
 | `infron__list_models` | Discover what models Infron offers | — | free |

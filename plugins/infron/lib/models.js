@@ -8,6 +8,10 @@ export const DEFAULTS = {
   imageEdit: "google/nano-banana-pro-image-to-image",
   videoTextToVideo: "bytedance/seedance-2.0/text-to-video",
   videoImageToVideo: "bytedance/seedance-2.0/image-to-video",
+  // Reference-to-video ("face/portrait") — render a video featuring the people
+  // in one or more reference images. Virtual-portrait variant is for a single
+  // face/talking-head; the general model takes up to 9 reference images.
+  videoReference: "bytedance/seedance-2.0/reference-to-video",
   videoFirstLastFrame: "google/veo3.1/first-last-frame-to-video",
 };
 
@@ -29,14 +33,19 @@ export const PRICING = {
   "google/veo3.1/image-to-video": { type: "per_second", usd: 0.40 },
   "google/veo3.1/first-last-frame-to-video": { type: "per_second", usd: 0.40 },
   // Seedance 2.0 — resolution-dependent; 720p (the default) measured ~$0.153/sec.
+  // Reference/virtual-portrait models surface a large notional `request_price` in
+  // /v1/models, but the real charge is token-based and matches the per-second rate
+  // (virtual-portrait 5s @ 720p measured $0.7623 → ~$0.152/sec, 2026-06-08).
   // Actual cost is read back from the task response (data.cost.total_cost), so
   // this is only the a-priori confirmation-gate estimate.
   "bytedance/seedance-2.0/text-to-video": { type: "per_second", usd: 0.153 },
   "bytedance/seedance-2.0/image-to-video": { type: "per_second", usd: 0.153 },
   "bytedance/seedance-2.0/reference-to-video": { type: "per_second", usd: 0.153 },
+  "bytedance/seedance-2.0/virtual-portrait-reference-to-video": { type: "per_second", usd: 0.153 },
   "bytedance/seedance-2.0/fast/text-to-video": { type: "per_second", usd: 0.153 },
   "bytedance/seedance-2.0/fast/image-to-video": { type: "per_second", usd: 0.153 },
   "bytedance/seedance-2.0/fast/reference-to-video": { type: "per_second", usd: 0.153 },
+  "bytedance/seedance-2.0/fast/virtual-portrait-reference-to-video": { type: "per_second", usd: 0.153 },
 };
 
 // Per-family video parameter contracts. Different video model families accept
