@@ -2,8 +2,8 @@ import { describe, it, expect } from "vitest";
 import { tools, definitions, requiresKey, findHandler } from "../../lib/tools/index.js";
 
 describe("tools registry", () => {
-  it("exposes all 10 tools", () => {
-    expect(tools).toHaveLength(10);
+  it("exposes all 11 tools", () => {
+    expect(tools).toHaveLength(11);
   });
 
   it("every tool has a name, description, and JSON schema", () => {
@@ -24,6 +24,7 @@ describe("tools registry", () => {
     for (const name of [
       "infron__image",
       "infron__image_edit",
+      "infron__upload_image",
       "infron__video",
       "infron__video_from_image",
       "infron__video_reference",

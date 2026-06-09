@@ -1,5 +1,6 @@
 import * as image from "./image.js";
 import * as imageEdit from "./image_edit.js";
+import * as uploadImage from "./upload_image.js";
 import * as video from "./video.js";
 import * as videoFromImage from "./video_from_image.js";
 import * as videoReference from "./video_reference.js";
@@ -13,6 +14,7 @@ import * as checkSetup from "./check_setup.js";
 const TOOLS_REQUIRING_KEY = new Set([
   "infron__image",
   "infron__image_edit",
+  "infron__upload_image",
   "infron__video",
   "infron__video_from_image",
   "infron__video_reference",
@@ -24,6 +26,7 @@ const TOOLS_REQUIRING_KEY = new Set([
 export const tools = [
   image,
   imageEdit,
+  uploadImage,
   video,
   videoFromImage,
   videoReference,

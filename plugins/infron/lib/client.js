@@ -138,3 +138,98 @@ export async function downloadToFile(url, outputPath) {
   fs.writeFileSync(outputPath, buf);
   return outputPath;
 }
+
+export const UPLOAD_RESOURCES_URL = `${API_BASE}/upload/resources`;
+
+const IMAGE_CONTENT_TYPES = {
+  png: "image/png",
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  webp: "image/webp",
+  gif: "image/gif",
+  bmp: "image/bmp",
+};
+
+function guessContentType(fileName) {
+  const ext = (fileName.split(".").pop() || "").toLowerCase();
+  return IMAGE_CONTENT_TYPES[ext] || "application/octet-stream";
+}
+
+/**
+ * Upload a LOCAL image file to Infron and get back a publicly-usable reference.
+ *
+ * The gateway stores the file to GCS (a public URL, immediately fetchable) and
+ * also registers an upstream `asset://` URI. Either can be passed as a reference
+ * image URL to infron__video_reference / infron__image_edit / infron__video_from_image.
+ *
+ * Two gateway quirks handled here:
+ *   1. multipart form REQUIRES a `model` field alongside `file`.
+ *   2. it always returns HTTP 200 — logical failures arrive as { code: 4xx,
+ *      message } in the JSON body, so we check `code` as well as resp.ok.
+ */
+export async function uploadResource(apiKey, { filePath, model }) {
+  if (!model) {
+    throw new InfronError("bad_request", "upload requires a `model`.");
+  }
+  let buf;
+  try {
+    buf = fs.readFileSync(filePath);
+  } catch (e) {
+    throw new InfronError("bad_request", `Could not read file '${filePath}': ${e.message}`, {
+      hint: "Pass an absolute path to a local image file.",
+    });
+  }
+  if (!buf || buf.length === 0) {
+    throw new InfronError("bad_request", `File is empty: ${filePath}`);
+  }
+
+  const fileName = filePath.split(/[/\\]/).pop() || "upload";
+  const form = new FormData();
+  form.append("model", model);
+  form.append("file", new Blob([buf], { type: guessContentType(fileName) }), fileName);
+
+  let resp;
+  try {
+    // Deliberately NO Content-Type header: fetch derives the multipart boundary
+    // from the FormData body. (The shared `request()` helper forces JSON, so this
+    // upload path does its own fetch.)
+    resp = await fetch(UPLOAD_RESOURCES_URL, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}` },
+      body: form,
+    });
+  } catch (e) {
+    throw new InfronError("network", `Upload request failed: ${e.message}`, {
+      hint: "Check your internet connection or VPN.",
+    });
+  }
+
+  const text = await resp.text().catch(() => "");
+  if (!resp.ok) {
+    if (resp.status === 401 || resp.status === 403) {
+      throw new InfronError("auth_failed", "Infron API key was rejected.", {
+        hint: "Re-run setup with a fresh key from https://infron.ai/dashboard/apiKeys.",
+        status: resp.status,
+        raw: text,
+      });
+    }
+    throw new InfronError(
+      resp.status >= 500 ? "server" : "bad_request",
+      `Upload returned HTTP ${resp.status}.`,
+      { hint: text.slice(0, 500), status: resp.status, raw: text }
+    );
+  }
+
+  let json;
+  try {
+    json = JSON.parse(text);
+  } catch {
+    throw new InfronError("server", `Upload returned a non-JSON response: ${text.slice(0, 300)}`);
+  }
+  if (typeof json.code === "number" && json.code >= 400) {
+    throw new InfronError("bad_request", `Upload failed: ${json.message || "unknown error"}`, {
+      raw: text,
+    });
+  }
+  return json.data ?? json;
+}

@@ -15,6 +15,13 @@ export const DEFAULTS = {
   videoFirstLastFrame: "google/veo3.1/first-last-frame-to-video",
 };
 
+// Default model for infron__upload_image. The /v1/upload/resources asset library
+// is NOT supported by every model — the general reference-to-video model returns
+// "model does not support asset library", while the virtual-portrait model accepts
+// the upload and mints a PUBLIC gcs_url that any tool can then use as a reference
+// (the URL is model-agnostic). So this known-good model is the safe upload default.
+export const UPLOAD_DEFAULT_MODEL = "bytedance/seedance-2.0/virtual-portrait-reference-to-video";
+
 // Pricing in USD. Used by tool descriptions, the confirmation gate's estimate,
 // and the test price-ceiling helper.
 // Source: memory/infron-api-access.md (Veo, 2026-05-26) + live gateway probe
