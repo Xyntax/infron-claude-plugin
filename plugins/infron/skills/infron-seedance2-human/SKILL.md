@@ -25,13 +25,13 @@ you a real selfie or photo, stop and say it will be rejected — then offer Path
 below (generate a virtual portrait first).
 
 ## What you need
-1. **One reference image as a PUBLIC https URL.** Local file paths are NOT supported by the model. GCS URLs returned by `mcp__infron__image` work directly as references.
+1. **One reference image** — either a public https URL or a local file (the skill uploads local files for you; see Step 1).
 2. **A prompt** describing what the character does — motion, expression, camera, and (if it should talk) the exact line to speak.
 
-## Step 1 — Get a usable reference URL
-- **Path A — user gave a public image URL:** use it. Sanity-check it's a virtual/illustrated portrait, not a real photo.
-- **Path B — user described a character, has no image, OR handed a real photo / local file:** generate a virtual portrait first with `mcp__infron__image` (default `google/nano-banana-pro-text-to-image`, ~$0.15). Prompt it for a non-photoreal look, e.g. *"3D-rendered stylized portrait of <description>, CGI character, not photorealistic, front-facing"*. Use the returned GCS URL as the reference. Tell the user this adds ~$0.15.
-- **Local file, no public URL, no description:** the plugin can't upload local files. Ask for a public URL, or offer Path B.
+## Step 1 — Get a usable reference URL (three paths)
+- **Path A — public image URL:** use it directly. Sanity-check it's a virtual/illustrated portrait, not a real photo.
+- **Path B — local file on disk (no public URL):** upload it with `mcp__infron__upload_image` (`{ file_path: "/abs/path.png" }`) and use the returned **`reference_url`** (a public GCS URL) as the reference. The video model does NOT accept local paths — always upload first.
+- **Path C — only a text description, no image at all:** generate a virtual portrait first with `mcp__infron__image` (~$0.15), prompted for a non-photoreal look (e.g. *"3D-rendered stylized portrait of <description>, CGI character, not photorealistic, front-facing"*), then use its returned URL.
 
 ## Step 2 — Pick parameters (Seedance cheat-sheet)
 | Param | Allowed values | Default for a portrait |
@@ -42,11 +42,11 @@ below (generate a virtual portrait first).
 | `aspect_ratio` | `21:9`,`16:9`,`4:3`,`1:1`,`3:4`,`9:16` | `"9:16"` (vertical frames a face best; use `3:4`/`16:9` if asked) |
 | `generate_audio` | bool | `true` if the portrait should speak, else `false` |
 
-## Step 3 — Confirm cost, then generate
-Seedance ≈ **$0.153/sec** at 720p — e.g. a 5s clip ≈ **$0.76** (480p is cheaper;
-Path B adds ~$0.15 for the portrait). **Quote the number and get an explicit
-"yes" in conversation BEFORE setting `confirmed: true`.** The tool hard-blocks
-without it (`confirmation_required`).
+## Step 3 — Generate directly (no confirmation prompt)
+Invoking `/infron-seedance2-human` is itself the go-ahead — **do NOT ask the user
+to confirm the cost; generate straight away** with `confirmed: true`. (FYI only,
+no need to surface it first: Seedance ≈ $0.153/sec at 720p → a 5s clip ≈ $0.76;
+Path C adds ~$0.15. The true charge comes back as `actual_cost_usd`.)
 
 Call shape:
 ```
@@ -58,7 +58,7 @@ mcp__infron__video_reference({
   resolution: "720p",
   aspect_ratio: "9:16",
   generate_audio: true,            // only if it should talk
-  confirmed: true,                 // ONLY after the user confirms the cost
+  confirmed: true,                 // required by the tool; the slash-command invocation IS the confirmation
   output_path: "./infron-seedance2-human-<timestamp>.mp4"   // optional
 })
 ```
@@ -72,6 +72,7 @@ returned path.
 
 ## Errors → fixes
 - `need_setup: true` → run the `infron-setup` skill to save an API key, then retry.
-- `InputImageSensitiveContentDetected` → the reference looked like a real person. Switch to a virtual/illustrated portrait (Path B).
-- `confirmation_required` → you passed `confirmed` without confirming the cost first; quote the price, get a yes, retry.
+- `InputImageSensitiveContentDetected` → the reference looked like a real person. Replace it with a clearly virtual/illustrated portrait (Path C generates one).
+- `confirmation_required` → you forgot `confirmed: true`. This skill always sets it (the invocation is the confirmation) — just retry with `confirmed: true`.
+- upload returns a failure / "Unsupported media format" → the source image is corrupt or an odd format; re-export it as a standard PNG or JPG and upload again.
 - `bad_request` on duration/resolution/aspect_ratio → the tool returns the allowed set; re-pick from the cheat-sheet (durations are STRINGS).
