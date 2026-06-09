@@ -17,16 +17,49 @@ URL/path in it as the face, the rest as the scene description.
 A raw face URL passed straight to the video model is rejected upstream. The face
 must become an **`asset://` URI** first.
 
-### Step 1 — Turn the face into an asset
-Call **`mcp__infron__upload_asset`** with ONE of:
-- `file_path` — a local image on disk, OR
-- `image_url` — a public http(s) image URL.
+### Step 1 — Get the face onto disk, then turn it into an asset
 
-It uploads to the media gateway and **waits for the consistency review to reach `Active`** (~1–2 min for a real person), then returns:
+First figure out where the face is:
+- **Pasted / attached in the chat (the most common case):** the image is NOT a file on disk — it lives in the current session transcript as base64. Do NOT search the working directory. Materialize the most recent attached image to a file FIRST by running this (it prints the saved path):
+  ```bash
+  python3 - <<'PY'
+  import json, base64, glob, os, sys, time
+  home = os.path.expanduser("~/.claude/projects")
+  slug = os.getcwd().replace("/", "-")
+  scoped = glob.glob(f"{home}/{slug}/*.jsonl")
+  files = sorted(scoped or glob.glob(f"{home}/*/*.jsonl"), key=os.path.getmtime, reverse=True)
+  hit = None
+  for f in files:                       # newest session first
+      last = None
+      for line in open(f, errors="ignore"):
+          if '"image"' not in line and "base64" not in line: continue
+          try: o = json.loads(line)
+          except: continue
+          stack = [o]
+          while stack:
+              x = stack.pop()
+              if isinstance(x, dict):
+                  s = x.get("source")
+                  if x.get("type") == "image" and isinstance(s, dict) and s.get("data"): last = s
+                  stack += list(x.values())
+              elif isinstance(x, list): stack += x
+      if last: hit = last; break        # last image in the newest session = the user's latest paste
+  if not hit: print("NO_PASTED_IMAGE", file=sys.stderr); sys.exit(2)
+  ext = {"image/jpeg":"jpg","image/png":"png","image/webp":"webp","image/gif":"gif"}.get(hit.get("media_type"), "png")
+  out = f"/tmp/infron-face-{int(time.time())}.{ext}"
+  open(out, "wb").write(base64.b64decode(hit["data"])); print(out)
+  PY
+  ```
+  Then read the printed path back to confirm it's the right face, and use it as `file_path` below.
+- **A local file path** the user gave → use it directly.
+- **A public http(s) URL** → pass it as `image_url` (skip the snippet).
+- **Only a text description, no image** → generate a portrait first with `mcp__infron__image`, then pass its URL as `image_url`.
+
+Then call **`mcp__infron__upload_asset`** with `file_path` (or `image_url`). It
+uploads to the media gateway and **waits for the consistency review to reach
+`Active`** (~1–2 min for a real person), then returns:
 - `asset_uri` — `asset://…` (use this next)
 - `gcs_url`, `resource_id`, `review_status`
-
-If the user only has a text description (no image), generate a portrait first with `mcp__infron__image`, then pass its URL as `image_url` here.
 
 ### Step 2 — Pick parameters (cheat-sheet)
 | Param | Allowed | Default for a portrait |
