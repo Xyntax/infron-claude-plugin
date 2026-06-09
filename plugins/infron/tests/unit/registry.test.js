@@ -24,7 +24,7 @@ describe("tools registry", () => {
     for (const name of [
       "infron__image",
       "infron__image_edit",
-      "infron__upload_image",
+      "infron__upload_asset",
       "infron__video",
       "infron__video_from_image",
       "infron__video_reference",

@@ -1,4 +1,5 @@
 import { DEFAULTS } from "../models.js";
+import { MEDIA_BASE } from "../client.js";
 import {
   confirmationGate,
   validateVideoParams,
@@ -11,27 +12,18 @@ const MAX_REFERENCE_IMAGES = 9;
 export const definition = {
   name: "infron__video_reference",
   description:
-    `Generate a video that FEATURES the people/subjects in one or more reference images (Seedance 2.0 reference-to-video). Pass publicly-accessible image URLs as reference_image_urls; the model renders a new video in which those subjects appear and move — the prompt describes what they do.
+    `Generate a video that FEATURES the people/subjects in reference images (Seedance 2.0 reference-to-video, on the media gateway). Pass references as reference_image_urls; the model renders a new video in which those subjects appear and move — the prompt describes what they do, preserving identity (face, hair, features).
 
-This is the "face / portrait" workflow: give it a person's face and the output video is generated from that person, preserving their identity (hair, features, etc.).
+Default model: bytedance/seedance-2.0/reference-to-video (general, up to 9 reference images, plain public image URLs).
+For a single face / talking-head, use bytedance/seedance-2.0/virtual-portrait-reference-to-video via the \`model\` parameter (the "人脸版").
 
-Default model: bytedance/seedance-2.0/reference-to-video (~$0.15/sec, ≤720p, up to 9 reference images). The actual charge is returned as actual_cost_usd.
-For a single portrait / talking-head driven by one face, use bytedance/seedance-2.0/virtual-portrait-reference-to-video via the \`model\` parameter (the "人脸版" / virtual-portrait variant). Append the \`/fast/\` tier (e.g. bytedance/seedance-2.0/fast/reference-to-video) for lower latency/cost.
+REAL FACES: the virtual-portrait model fully supports real people via an authorized asset flow — it is NOT blocked. A raw URL of a real face is rejected upstream; instead upload it first with infron__upload_asset (which registers it and waits for the consistency review to pass), then pass the returned asset:// URI here. In the prompt, refer to each reference as @Image1, @Image2, … (mapping to reference_image_urls[0], [1], …). Example prompt: "@Image1 the man is eating breakfast, English countryside behind him".
 
-⚠️  REAL-PERSON FILTER: the virtual-portrait model rejects images that look like a real person (upstream privacy/anti-deepfake filter → "InputImageSensitiveContentDetected"). Use a clearly virtual / illustrated / 3D-rendered / stylized portrait, not a photo of a real human.
+PARAMS: aspect_ratio 21:9/16:9/4:3/1:1/3:4/9:16 (def 16:9) · resolution 480p/720p (def 720p) · duration "4"–"15" · generate_audio (def true) · optional seed (>=1). Cost is token-based (~$0.61 for a 4s 720p clip with audio); the true charge is returned as actual_cost_usd.
 
-⚠️  COST WARNING: video costs real money (Seedance ~$0.15/sec; ~$0.76 for a 5s 720p clip). The true charge is returned as actual_cost_usd.
+CRITICAL: video costs real money. Set \`confirmed: true\` only when the caller has authorized the spend (a slash-command invocation that requests a video counts as authorization).
 
-CRITICAL: Before calling this tool, you MUST verbally confirm the cost with the user in conversation. Set the \`confirmed\` parameter to true only after they explicitly confirm.
-
-Use this tool when:
-  - The user wants a video built from a specific person's face/photo (identity preserved)
-  - The user wants several reference images (a character, an outfit, a product) to drive a consistent subject across the clip
-
-Note: duration / resolution / aspect_ratio accept different values per model family — an invalid value returns the allowed set for that model.
-
-For animating a single still image (first frame → motion), use infron__video_from_image instead.
-For a purely text-driven video, use infron__video.`,
+For animating a single still image (first frame → motion), use infron__video_from_image. For a purely text-driven video, use infron__video.`,
   inputSchema: {
     type: "object",
     required: ["prompt", "confirmed", "reference_image_urls"],
@@ -69,7 +61,12 @@ For a purely text-driven video, use infron__video.`,
       },
       generate_audio: {
         type: "boolean",
-        description: "Generate a native audio track. Default: false. Set true for a talking portrait that should speak.",
+        description: "Generate a native audio track. Default: true (the gateway default for this family). Set false for a silent clip.",
+      },
+      seed: {
+        type: "integer",
+        minimum: 1,
+        description: "Optional random seed (>=1) for reproducible generations.",
       },
       output_path: {
         type: "string",
@@ -96,17 +93,29 @@ export async function handler(args, ctx) {
     return badRequest("Every entry in reference_image_urls must be a non-empty URL string. Local file paths are not supported.");
   }
 
+  // Gateway default for this family is audio ON (the manual's default). Apply it
+  // before validation so an omitted generate_audio resolves to true, not false.
+  if (args.generate_audio == null) args.generate_audio = true;
+
   const v = validateVideoParams(model, args);
   if (v.error) return v.error;
 
-  // The onerouter gateway takes reference images as a flat `image_urls` array of
-  // URL strings (verified live 2026-06-08 — the OpenRouter-native `input_references`
-  // shape is silently ignored by this gateway). Plain public https URLs are fetched
-  // gateway-side; an `asset://` URI from /v1/upload/resources also works.
+  if (args.seed != null && (!Number.isInteger(args.seed) || args.seed < 1)) {
+    return badRequest("seed must be an integer >= 1.");
+  }
+
+  // The media gateway takes references as a flat `image_urls` array of strings —
+  // either public https URLs or `asset://` URIs from /v1/upload/resources. For
+  // the virtual-portrait ("face") model the prompt must reference each asset as
+  // @Image1, @Image2, … (mapping to image_urls[0], [1], …).
   const payload = {
     model,
     prompt: args.prompt,
     image_urls: urls,
+    video_urls: [],
+    audio_urls: [],
+    n: 1,
+    ...(args.seed != null ? { seed: args.seed } : {}),
     ...v.params,
   };
 
@@ -115,6 +124,8 @@ export async function handler(args, ctx) {
     payload,
     outputPath: args.output_path || defaultOutputPath("infron-video"),
     toolLabel: "infron__video_reference",
+    submitUrl: `${MEDIA_BASE}/videos/generations`,
+    tasksBase: `${MEDIA_BASE}/videos/tasks`,
   });
 }
 

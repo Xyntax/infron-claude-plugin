@@ -143,7 +143,8 @@ describe("infron__video_reference", () => {
     expect(ref.payload.duration).toBe("5");
     expect(ref.payload.resolution).toBe("720p");
     expect(ref.payload.aspect_ratio).toBe("9:16");
-    expect(ref.payload.generate_audio).toBe(false); // Seedance default
+    expect(ref.payload.generate_audio).toBe(true); // reference family defaults audio ON
+    expect(ref.payload.n).toBe(1);                 // gateway requires n == 1
     if (fs.existsSync(out)) fs.unlinkSync(out);
   });
 

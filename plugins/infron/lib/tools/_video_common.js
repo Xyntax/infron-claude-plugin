@@ -127,8 +127,8 @@ export function validateVideoParams(model, args) {
  * @param {string} opts.toolLabel  label for cost ledger / errors
  * @returns {Promise<object>} success content for MCP response
  */
-export async function submitPollDownload({ apiKey, payload, outputPath, toolLabel }) {
-  const submit = await generateVideoSubmit(apiKey, payload);
+export async function submitPollDownload({ apiKey, payload, outputPath, toolLabel, submitUrl, tasksBase }) {
+  const submit = await generateVideoSubmit(apiKey, payload, submitUrl);
   const taskId = submit?.data?.task_id ?? submit?.task_id;
   if (!taskId) {
     throw new Error(`Infron returned no task_id for ${toolLabel}. Raw: ${JSON.stringify(submit).slice(0, 500)}`);
@@ -140,7 +140,7 @@ export async function submitPollDownload({ apiKey, payload, outputPath, toolLabe
   let last;
   while (Date.now() - startedAt < timeout) {
     await new Promise(r => setTimeout(r, interval));
-    last = await pollVideoTask(apiKey, taskId);
+    last = await pollVideoTask(apiKey, taskId, tasksBase);
     const status = last?.data?.status ?? last?.status;
     if (status === "completed" || status === "succeeded") break;
     if (status === "failed" || status === "error") {

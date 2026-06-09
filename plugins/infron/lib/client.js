@@ -3,6 +3,14 @@ import fs from "node:fs";
 export const API_BASE = "https://llm.onerouter.pro/v1";
 export const VIDEO_TASKS_BASE = "https://video.onerouter.pro/v1/videos/tasks";
 export const IMAGE_TASKS_BASE = "https://image.onerouter.pro/v1/images/tasks";
+// Reference / virtual-portrait ("face") video + the asset library live on the
+// media gateway. The legacy llm./video. hosts 500 for the reference family.
+export const MEDIA_BASE = "https://media.onerouter.pro/v1";
+
+// media.onerouter.pro is Cloudflare-gated and 1010-blocks the default UA of both
+// Node's fetch (undici) and python-urllib. A curl-style UA passes. Sent on every
+// request — harmless on the other hosts, required on media.
+const USER_AGENT = "curl/8.4.0";
 
 export class InfronError extends Error {
   constructor(type, message, { hint = null, status = null, raw = null } = {}) {
@@ -22,6 +30,7 @@ async function request(apiKey, url, options = {}) {
       headers: {
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
+        "User-Agent": USER_AGENT,
         ...(options.headers || {}),
       },
     });
@@ -103,19 +112,19 @@ export async function generateImage(apiKey, payload) {
   return resp.json();
 }
 
-export async function generateVideoSubmit(apiKey, payload) {
+export async function generateVideoSubmit(apiKey, payload, submitUrl = `${API_BASE}/videos/generations`) {
   if (!payload.prompt) {
     throw new InfronError("bad_request", "video requires `prompt`.");
   }
-  const resp = await request(apiKey, `${API_BASE}/videos/generations`, {
+  const resp = await request(apiKey, submitUrl, {
     method: "POST",
     body: JSON.stringify(payload),
   });
   return resp.json();
 }
 
-export async function pollVideoTask(apiKey, taskId) {
-  const resp = await request(apiKey, `${VIDEO_TASKS_BASE}/${encodeURIComponent(taskId)}`);
+export async function pollVideoTask(apiKey, taskId, tasksBase = VIDEO_TASKS_BASE) {
+  const resp = await request(apiKey, `${tasksBase}/${encodeURIComponent(taskId)}`);
   return resp.json();
 }
 
@@ -139,7 +148,8 @@ export async function downloadToFile(url, outputPath) {
   return outputPath;
 }
 
-export const UPLOAD_RESOURCES_URL = `${API_BASE}/upload/resources`;
+export const UPLOAD_RESOURCES_URL = `${MEDIA_BASE}/upload/resources`;
+export const RESOURCE_STATUS_BASE = `${MEDIA_BASE}/status/resources`;
 
 const IMAGE_CONTENT_TYPES = {
   png: "image/png",
@@ -156,49 +166,66 @@ function guessContentType(fileName) {
 }
 
 /**
- * Upload a LOCAL image file to Infron and get back a publicly-usable reference.
+ * Upload an image to the Infron media gateway and get back an `asset://` URI
+ * (plus a public gcs_url). The asset is what the virtual-portrait / reference
+ * video model takes in `image_urls`. Accepts either a local file (`filePath`,
+ * sent multipart) or a public http(s) URL (`fileUrl`, sent as JSON).
  *
- * The gateway stores the file to GCS (a public URL, immediately fetchable) and
- * also registers an upstream `asset://` URI. Either can be passed as a reference
- * image URL to infron__video_reference / infron__image_edit / infron__video_from_image.
- *
- * Two gateway quirks handled here:
- *   1. multipart form REQUIRES a `model` field alongside `file`.
+ * Three gateway quirks handled here:
+ *   1. the form/body REQUIRES a `model` field alongside the file.
  *   2. it always returns HTTP 200 — logical failures arrive as { code: 4xx,
  *      message } in the JSON body, so we check `code` as well as resp.ok.
+ *   3. media.onerouter.pro 1010-blocks the default UA → send a curl UA.
+ *
+ * The asset comes back `Processing`; real-person portraits must then pass a
+ * consistency review (poll pollResourceStatus until Active) before use.
  */
-export async function uploadResource(apiKey, { filePath, model }) {
+export async function uploadResource(apiKey, { filePath, fileUrl, model }) {
   if (!model) {
     throw new InfronError("bad_request", "upload requires a `model`.");
   }
-  let buf;
-  try {
-    buf = fs.readFileSync(filePath);
-  } catch (e) {
-    throw new InfronError("bad_request", `Could not read file '${filePath}': ${e.message}`, {
-      hint: "Pass an absolute path to a local image file.",
-    });
+  if (!filePath && !fileUrl) {
+    throw new InfronError("bad_request", "upload requires either a local `filePath` or a public `fileUrl`.");
   }
-  if (!buf || buf.length === 0) {
-    throw new InfronError("bad_request", `File is empty: ${filePath}`);
-  }
-
-  const fileName = filePath.split(/[/\\]/).pop() || "upload";
-  const form = new FormData();
-  form.append("model", model);
-  form.append("file", new Blob([buf], { type: guessContentType(fileName) }), fileName);
 
   let resp;
   try {
-    // Deliberately NO Content-Type header: fetch derives the multipart boundary
-    // from the FormData body. (The shared `request()` helper forces JSON, so this
-    // upload path does its own fetch.)
-    resp = await fetch(UPLOAD_RESOURCES_URL, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${apiKey}` },
-      body: form,
-    });
+    if (fileUrl) {
+      // Remote URL mode — JSON body, only http/https supported upstream.
+      resp = await fetch(UPLOAD_RESOURCES_URL, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+          "User-Agent": USER_AGENT,
+        },
+        body: JSON.stringify({ model, file: fileUrl }),
+      });
+    } else {
+      let buf;
+      try {
+        buf = fs.readFileSync(filePath);
+      } catch (e) {
+        throw new InfronError("bad_request", `Could not read file '${filePath}': ${e.message}`, {
+          hint: "Pass an absolute path to a local image file.",
+        });
+      }
+      if (!buf || buf.length === 0) {
+        throw new InfronError("bad_request", `File is empty: ${filePath}`);
+      }
+      const fileName = filePath.split(/[/\\]/).pop() || "upload";
+      const form = new FormData();
+      form.append("model", model);
+      form.append("file", new Blob([buf], { type: guessContentType(fileName) }), fileName);
+      // No Content-Type: fetch derives the multipart boundary from the FormData body.
+      resp = await fetch(UPLOAD_RESOURCES_URL, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${apiKey}`, "User-Agent": USER_AGENT },
+        body: form,
+      });
+    }
   } catch (e) {
+    if (e instanceof InfronError) throw e;
     throw new InfronError("network", `Upload request failed: ${e.message}`, {
       hint: "Check your internet connection or VPN.",
     });
@@ -232,4 +259,39 @@ export async function uploadResource(apiKey, { filePath, model }) {
     });
   }
   return json.data ?? json;
+}
+
+// Fetch the review status of an uploaded asset. Returns the `data` object whose
+// `upstream_status` advances Processing -> Active (usable) or Failed/Rejected.
+export async function getResourceStatus(apiKey, resourceId) {
+  const resp = await request(apiKey, `${RESOURCE_STATUS_BASE}/${encodeURIComponent(resourceId)}`);
+  const json = await resp.json();
+  return json.data ?? json;
+}
+
+/**
+ * Poll an uploaded asset until its real-person consistency review reaches Active.
+ * Returns the final status data. Throws if the review fails or times out.
+ */
+export async function pollResourceActive(apiKey, resourceId, { intervalMs = 4000, timeoutMs = 300000 } = {}) {
+  const startedAt = Date.now();
+  let last;
+  while (Date.now() - startedAt < timeoutMs) {
+    last = await getResourceStatus(apiKey, resourceId);
+    const status = last?.upstream_status;
+    if (status === "Active") return last;
+    if (status === "Failed" || status === "Rejected") {
+      throw new InfronError(
+        "bad_request",
+        `Asset ${resourceId} review did not pass (status: ${status}).`,
+        { hint: "Use a different portrait, or check the image meets the model's requirements." }
+      );
+    }
+    await new Promise((r) => setTimeout(r, intervalMs));
+  }
+  throw new InfronError(
+    "server",
+    `Asset ${resourceId} did not reach Active within ${timeoutMs / 1000}s (last status: ${last?.upstream_status}).`,
+    { hint: "The consistency review is slow right now; retry the upload or poll the status endpoint again." }
+  );
 }
