@@ -33,7 +33,7 @@ After install, Claude has access to:
 |---|---|---|---|
 | `infron__image` | Generate an image (sync or async, model-dependent) and save the file | `google/nano-banana-pro-text-to-image` | $0.006–$0.15/image |
 | `infron__image_edit` | Edit / transform a source image (image-to-image) | `google/nano-banana-pro-image-to-image` | $0.006–$0.15/image |
-| `infron__upload_image` | Upload a LOCAL image file → get a public URL (`reference_url`) + `asset://` URI to use as a reference in the video / image-edit tools | — | free |
+| `infron__upload_asset` | Upload an image (local file or public URL) to the media gateway → wait for the consistency review → get an `asset://` URI for the virtual-portrait / reference video model | — | free |
 | `infron__video` | Generate a video from a text prompt (async, auto-polled) | `bytedance/seedance-2.0/text-to-video` | ~$0.15/sec (~$0.61 for 4s); Veo via `model` ~$0.40/sec |
 | `infron__video_from_image` | Animate a still image into a video | `bytedance/seedance-2.0/image-to-video` | ~$0.15/sec |
 | `infron__video_reference` | Generate a video featuring the person/subject in reference image(s) — the "face / portrait" workflow (identity preserved) | `bytedance/seedance-2.0/reference-to-video` | ~$0.15/sec (~$0.76 for 5s) |
@@ -50,11 +50,11 @@ The plugin also ships three skills:
 - `infron-setup` — runs the first-time API-key flow when you don't have one
   configured yet.
 - `infron-seedance2-human` (`/infron-seedance2-human`) — one-command talking-head
-  / portrait video from a single **virtual** face via Seedance 2.0's
+  / portrait video from a single face via Seedance 2.0's
   `virtual-portrait-reference-to-video` model. Takes a public image URL or a local
-  file (auto-uploaded via `infron__upload_image`), generates directly without a
-  cost prompt. Real-person photos are rejected by the model's privacy filter; the
-  skill can generate a virtual portrait first.
+  file, uploads it via `infron__upload_asset` (which waits for the real-person
+  consistency review), references the face in the prompt as `@Image1`, and
+  generates directly without a cost prompt.
 
 ## How to use
 
