@@ -42,12 +42,16 @@ After install, Claude has access to:
 | `infron__check_setup` | Check whether your key is configured | — | free |
 | `infron__save_config` | Save a key (used by the setup skill) | — | free |
 
-The plugin also ships two skills:
+The plugin also ships three skills:
 
 - `infron-defaults` — tells Claude to route image and video requests to Infron
   by default. Chat is *not* hijacked.
 - `infron-setup` — runs the first-time API-key flow when you don't have one
   configured yet.
+- `infron-seedance2-human` (`/infron-seedance2-human`) — one-command talking-head
+  / portrait video from a single **virtual** face via Seedance 2.0's
+  `virtual-portrait-reference-to-video` model (real-person photos are rejected by
+  the model's privacy filter; the skill can generate a virtual portrait first).
 
 ## How to use
 
